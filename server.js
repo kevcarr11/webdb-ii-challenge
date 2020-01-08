@@ -22,32 +22,95 @@ server.get("/api/cars", async (req, res, next) => {
 
   try {
     res.json(await db("cars")
-    .select())
+      .select())
   } catch (err) {
     next()
   }
 })
 
-server.post("/api/cars", async (req, res, next) => {
-const { vin, make, model, mileage } = req.body
+server.post("/api/cars", validateCarData, async (req, res, next) => {
+  const { vin, make, model, year, mileage, transmissionType, titleStatus } = req.body
 
   try {
     const payload = {
-      vin: vin,
-      make: make,
-      model: model,
-      mileage: mileage
+      vin,
+      make,
+      model,
+      year,
+      mileage,
+      transmissionType,
+      titleStatus
     }
 
     const [id] = await db("cars")
       .insert(payload)
     res.json(await db("cars")
-    .where("id", id)
-    .first())
+      .where("id", id)
+      .first())
   } catch (err) {
     next(err)
   }
 })
+
+server.put("/api/cars/:id", validateCarData, validateCarId, async (req, res, next) => {
+  const { vin, make, model, year, mileage, transmissionType, titleStatus } = req.body
+
+  try {
+    const payload = {
+      vin,
+      make,
+      model,
+      year,
+      mileage,
+      transmissionType,
+      titleStatus
+    }
+
+    await db("cars")
+      .where('id', req.params.id)
+      .update(payload)
+    res.json(await db("cars")
+      .where("id", req.params.id)
+      .first())
+  } catch (err) {
+    next(err)
+  }
+})
+
+server.delete("/api/cars/:id", validateCarId, async (req, res, next) => {
+  try {
+    await db("cars")
+      .where("id", req.params.id)
+      .del()
+    res.status(204)
+      .end()
+  } catch (err) {
+    next(err)
+  }
+})
+
+async function validateCarId(req, res, next) {
+  try {
+    const car = await db("cars")
+      .where("id", req.params.id)
+      .first()
+    if (car) {
+      next()
+    } else {
+      res.status(404).json({ message: "car not found" })
+    }
+  } catch (err) {
+    next(err)
+  }
+}
+
+function validateCarData(req, res, next) {
+  const carData = req.body
+  if (!carData.vin || !carData.make || !carData.model || !carData.mileage || !carData.year) {
+    return res.status(400).json({ errorMessage: "Please provide vin, make, model, year and mileage for the car." })
+  }
+  next()
+}
 
 server.use((req, res) => {
   res.status(404).json({
